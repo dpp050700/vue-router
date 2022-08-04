@@ -97,11 +97,32 @@
     console.log(currentLocation, currentState, history.state)
   }
 
+  function useHistoryListener(currentLocation, currentState) {
+    let listeners = []
+    function listen(callback) {
+      listeners.push(callback)
+    }
+
+    window.addEventListener('popstate', (state) => {
+
+    })
+    
+    return {
+      listen
+    }
+  }
+  
   function createWebHistory() {
     // 1 实现维护路径和状态
     const historyNavigation = useHistoryStateNavigation()
     // historyNavigation.push('/about', { a: 1 })
-    return historyNavigation
+    // return historyNavigation
+
+    const { listen } = useHistoryListener(currentLocation, currentState)
+
+    listen((to, from, state) => {
+      console.log(to, from, state)
+    })
   }
 
   var route = createWebHistory()
