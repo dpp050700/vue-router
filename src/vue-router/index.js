@@ -2,7 +2,72 @@
 import {RouterLink} from './RouterLink'
 import {RouterView} from './RouterView'
 
+export * from './history'
+
+function normalizeRecord(record) {
+  return {
+    path: record.path,
+    components: {
+      default: record.component,
+      ...(record.components ? record.components : {})
+    },
+    children: record.children || [],
+    beforeEnter: record.beforeEnter,
+    meta: record.meta
+  }
+}
+
+function createRecord(record, parent) {
+  const obj = {
+    path: parent?.path ? parent.path + record.path: record.path,
+    record,
+    parent,
+    children: []
+  }
+  if(parent) {
+    parent.children.push(obj)
+  }
+  return obj
+}
+
+function createRouterMatcher(routes) {
+  const matchers = []
+
+  function addRoute(record, parent) {
+    // 将用户写的 record 格式化
+
+    const normalRecord = normalizeRecord(record)
+
+    let newRecord = createRecord(normalRecord, parent)
+
+    for(let i = 0; i < normalRecord.children.length; i++) {
+      const child = normalRecord.children[i]
+      addRoute(child, newRecord)
+    }
+    matchers.push(newRecord)
+    
+  }
+
+  function addRoutes(routes) {
+    routes.forEach(route => addRoute(route))
+  }
+
+  addRoutes(routes)
+
+  // routes.forEach(route => addRoute(route))
+
+  return {
+    addRoute,
+    addRoutes,
+    matchers
+  }
+}
+
 export function createRouter(options) {
+
+  const { routes, history } = options
+
+  const {addRoute, addRoutes, matchers} = createRouterMatcher(routes)
 
   return {
     install(app) {
@@ -12,9 +77,7 @@ export function createRouter(options) {
   }
 }
 
-export function createWebHistory() {}
 
-export function createWebHashHistory() {}
 
 
 // hash 值变化 不会重新加载页面 
