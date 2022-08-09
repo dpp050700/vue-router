@@ -1,4 +1,5 @@
 
+import { computed, ref, shallowRef } from 'vue'
 import {RouterLink} from './RouterLink'
 import {RouterView} from './RouterView'
 
@@ -52,6 +53,19 @@ function createRouterMatcher(routes) {
     routes.forEach(route => addRoute(route))
   }
 
+  function resolveMatcher(route) {
+    let matched = []
+    let matcher = matchers.find(m => m.path === route.path)
+    while(matcher) {
+      matched.unshift(matcher.record)
+      matcher = matcher.parent
+    }
+    return {
+      path: route.path,
+      matched
+    }
+  }
+
   addRoutes(routes)
 
   // routes.forEach(route => addRoute(route))
@@ -59,22 +73,101 @@ function createRouterMatcher(routes) {
   return {
     addRoute,
     addRoutes,
+    resolveMatcher,
     matchers
   }
 }
 
+// 路由开始状态
+const START_LOCATION_STATE = {
+  path: '/',
+  matched: [],
+  query: {},
+  params: {}
+}
+
 export function createRouter(options) {
+
+  let ready = false
 
   const { routes, history } = options
 
-  const {addRoute, addRoutes, matchers} = createRouterMatcher(routes)
+  const {addRoute, addRoutes, resolveMatcher, matchers} = createRouterMatcher(routes)
 
-  return {
+  const currentRoute = shallowRef(START_LOCATION_STATE) // $route
+
+  if(currentRoute.value === START_LOCATION_STATE) {
+    push(history.location) // 根据用户当前的路径做一次匹配
+  }
+
+  let reactiveRoute = {}
+  for(let key in START_LOCATION_STATE) {
+    reactiveRoute[key] = computed(() => currentRoute.value[key])
+  }
+
+  function resolve(to){
+    if(typeof to === 'string') {
+      to = {path: to}
+    }
+    return resolveMatcher(to)
+  }
+
+  function markReady() {
+    if(ready) return
+
+    history.listen((to) => {
+      // 监听用户前进后退事件
+      const targetLocation = resolve(to)
+      const from = currentRoute.value
+      finalNavigation(targetLocation, from, true)
+    })
+
+    ready = true
+  }
+
+  function finalNavigation(to, from, replaced) {
+
+    if(from === START_LOCATION_STATE || replaced) { // 第一次 replace ，后续都是 push
+      history.replace(to.path)
+    } else {
+      history.push(to.path)
+    }
+
+    currentRoute.value = to
+
+    markReady()
+  }
+
+  function push(to) {
+    const targetLocation = resolve(to)
+    const from = currentRoute.value
+
+    finalNavigation(targetLocation, from)
+
+  }
+
+  //$router
+  const router = {
+    push,
+    replace() {},
     install(app) {
+      let router = this
+
+      app.config.globalProperties.$router = router
+      Object.defineProperty(app.config.globalProperties, '$route', {
+        get: () => currentRoute.value
+      })
+
+      // vue3 注册到组件中 组件可以用 inject 实现注入
+      app.provide('router', router)
+      app.provide('route', currentRoute)
+
       app.component('router-link', RouterLink)
       app.component('router-view', RouterView)
     }
   }
+
+  return router
 }
 
 
@@ -90,3 +183,17 @@ export function createRouter(options) {
 
 
 // 通过 historyAPI 可以实现 hash 模式， 都采用 history 的方式来使用
+
+
+// 路由钩子
+
+// beforeRouteLeave 组件的
+// beforeEach 全局的
+// beforeRouteUpdate 组件的
+
+
+// beforeEnter 路由中配置的
+// beforeRouterEnter 组件的
+
+// beforeResolve 全局的
+// afterEach 全局的

@@ -10,6 +10,21 @@
   </div>
 </template>
 
+<script>
+import { inject } from 'vue'
+export default {
+  setup() {
+    const route = inject('route')
+    const router = inject('router')
+    return {}
+  }
+  // mounted() {
+  //   console.log(this.$route)
+  //   console.log(this.$router)
+  // }
+}
+</script>
+
 <style scoped>
 .logo {
   height: 6em;
